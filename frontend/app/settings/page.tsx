@@ -24,6 +24,8 @@ import {
   CircleHelp,
   ExternalLink,
   ChevronRight,
+  Server,
+  Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -43,7 +45,7 @@ const sections = [
     description: 'Always in your control',
     icon: ShieldCheck,
   },
-  { id: 'integration', label: 'AI connection', description: 'The next phase', icon: PlugZap },
+  { id: 'integration', label: 'CPU engine', description: 'Optional, runs locally', icon: PlugZap },
 ];
 const profileSchema = z.object({
   displayName: z
@@ -54,15 +56,24 @@ const profileSchema = z.object({
   email: z.email('Add a valid email address.'),
 });
 export default function SettingsPage() {
-  const { preferences, savePreferences, resetWorkspace, setSource, creations, history, profiles } =
-    useStudio();
+  const {
+    preferences,
+    savePreferences,
+    resetWorkspace,
+    setSource,
+    creations,
+    history,
+    customVoices,
+    engineState,
+    engineHealth,
+    refreshEngine,
+    voices,
+  } = useStudio();
   const [draft, setDraft] = useState<Preferences>({ ...preferences });
   const [section, setSection] = useState('general');
   const [recordOpen, setRecordOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
-  const [backendUrl, setBackendUrl] = useState('');
   const [testing, setTesting] = useState(false);
-  const [apiReachable, setApiReachable] = useState(false);
   const [emailError, setEmailError] = useState('');
   const dirty = JSON.stringify(draft) !== JSON.stringify(preferences);
   const change = <K extends keyof Preferences>(key: K, value: Preferences[K]) =>
@@ -82,33 +93,6 @@ export default function SettingsPage() {
     }
     setEmailError('');
     savePreferences({ ...draft, displayName: draft.displayName.trim() });
-  };
-  const testConnection = async () => {
-    setTesting(true);
-    setApiReachable(false);
-    try {
-      const url = z.url().parse(backendUrl);
-      if (!/^https?:\/\//i.test(url)) throw new Error('Use an HTTP or HTTPS backend URL.');
-      const response = await fetch(`${url.replace(/\/$/, '')}/api/voices/presets`, {
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!response.ok) throw new Error(`The API returned ${response.status}.`);
-      const data = await response.json();
-      if (!Array.isArray(data) && !Array.isArray(data.presets))
-        throw new Error('The endpoint did not return a voice preset list.');
-      setApiReachable(true);
-      toast.success('Preset API is reachable', {
-        description: 'GPU inference still needs a separate, real conversion test.',
-      });
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'The backend could not be reached. Check its URL and CORS configuration.',
-      );
-    } finally {
-      setTesting(false);
-    }
   };
   return (
     <div className="settings-page">
@@ -251,15 +235,25 @@ export default function SettingsPage() {
                       <option value="48000">48 kHz · Studio</option>
                       <option value="96000">96 kHz · High resolution</option>
                     </select>
-                    <p className="settings-field-note">Applied to local effect exports.</p>
+                    <p className="settings-field-note">Applied to local renders and browser exports.</p>
                   </div>
                   <div>
-                    <label className="field-label">Export format</label>
-                    <div className="read-only-field">
-                      <FileAudio size={14} />
-                      WAV · 16-bit PCM<Badge>LOSSLESS</Badge>
-                    </div>
-                    <p className="settings-field-note">An uncompressed, playable audio file.</p>
+                    <label className="field-label" htmlFor="target-lufs">
+                      Target loudness
+                    </label>
+                    <select
+                      id="target-lufs"
+                      className="input-field"
+                      value={draft.targetLufs}
+                      onChange={(e) => change('targetLufs', e.target.value)}
+                    >
+                      <option value="-14">−14 LUFS · Streaming</option>
+                      <option value="-16">−16 LUFS · Podcast</option>
+                      <option value="-18">−18 LUFS · Broadcast</option>
+                    </select>
+                    <p className="settings-field-note">
+                      Measured with the BS.1770 gated loudness algorithm, then limited to −1 dBTP.
+                    </p>
                   </div>
                 </div>
                 <div className="subtle-divider" />
@@ -274,16 +268,43 @@ export default function SettingsPage() {
                     aria-label="Normalize exported audio"
                   />
                 </div>
+                <div className="settings-toggle-row">
+                  <div>
+                    <h3>Clean up noise automatically</h3>
+                    <p>
+                      Spectral noise reduction on every render, using the quietest part of your clip as
+                      the noise profile.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={draft.denoise}
+                    onCheckedChange={(checked) => change('denoise', checked)}
+                    aria-label="Denoise every render"
+                  />
+                </div>
+                <div className="settings-toggle-row">
+                  <div>
+                    <h3>Trim silence</h3>
+                    <p>Remove long gaps at the start and end of the processed audio.</p>
+                  </div>
+                  <Switch
+                    checked={draft.trimSilence}
+                    onCheckedChange={(checked) => change('trimSilence', checked)}
+                    aria-label="Trim silence on render"
+                  />
+                </div>
+                <div className="subtle-divider" />
                 <div className="audio-engine-spec">
                   <Cpu size={17} />
                   <div>
-                    <h3>Web Audio processing</h3>
+                    <h3>Two real engines, one design format</h3>
                     <p>
-                      Local pitch, modulation, filtering, and echo. No AI speaker identity
-                      conversion.
+                      The browser DSP and the Python engine share the same voice-chain spec, so a design
+                      renders the same way in both. Pitch and formant shifting, tone sculpting,
+                      dynamics, reverb and true peak limiting.
                     </p>
                   </div>
-                  <Badge className="badge-green">AVAILABLE</Badge>
+                  <Badge className="badge-green">DETERMINISTIC</Badge>
                 </div>
               </Panel>
               <Panel className="settings-panel hardware-panel">
@@ -398,8 +419,9 @@ export default function SettingsPage() {
                   <div>
                     <h3>No hidden uploads</h3>
                     <p>
-                      Traditional effects run locally. Your audio isn’t sent to any server in this
-                      frontend.
+                      {engineState === 'online'
+                        ? 'With the engine connected, only the clip you render is uploaded to your own machine, and it expires automatically.'
+                        : 'No engine is connected. Every effect is processed inside this browser tab.'}
                     </p>
                   </div>
                   <Check size={14} />
@@ -407,9 +429,10 @@ export default function SettingsPage() {
                 <div className="privacy-feature">
                   <Database size={20} />
                   <div>
-                    <h3>No database. No permanent records.</h3>
+                    <h3>Temporary audio, saved designs</h3>
                     <p>
-                      Creations, voice references, and activity live in temporary frontend memory.
+                      Renders are deleted after {engineHealth?.limits.ttl_minutes ?? 360} minutes. Voice
+                      designs, projects and preferences are the only things stored.
                     </p>
                   </div>
                   <Check size={14} />
@@ -417,10 +440,10 @@ export default function SettingsPage() {
                 <div className="privacy-feature">
                   <ShieldCheck size={20} />
                   <div>
-                    <h3>Permission comes first</h3>
+                    <h3>Design, never clone</h3>
                     <p>
-                      Reference voices require explicit permission. Deceptive impersonation isn’t
-                      supported.
+                      VOXSHIFT does not learn from anyone&apos;s voice and cannot imitate a real person,
+                      so there is nothing to consent for.
                     </p>
                   </div>
                   <Check size={14} />
@@ -430,20 +453,35 @@ export default function SettingsPage() {
                     CREATIONS<strong>{creations.length}</strong>
                   </span>
                   <span>
-                    REFERENCES<strong>{profiles.length}</strong>
+                    CUSTOM VOICES<strong>{customVoices.length}</strong>
                   </span>
                   <span>
                     ACTIVITY EVENTS<strong>{history.length}</strong>
                   </span>
                 </div>
+                <div className="settings-toggle-row">
+                  <div>
+                    <h3>Remember this workspace</h3>
+                    <p>
+                      Keep preferences, saved voices and history in this browser between visits.
+                      Audio is never stored this way.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={draft.remember}
+                    onCheckedChange={(checked) => change('remember', checked)}
+                    aria-label="Remember this workspace"
+                  />
+                </div>
                 <div className="settings-info-strip">
-                  Download anything you want to keep. A refresh starts a new session.
+                  <Download size={13} />
+                  Download anything you want to keep. Turning the toggle off clears the stored copy.
                 </div>
               </Panel>
               <Panel className="settings-panel danger-panel">
                 <div>
                   <h3>A clean slate.</h3>
-                  <p>Clear this session’s audio, references, creations, and history.</p>
+                  <p>Clear this session’s audio, custom voices, creations, and history.</p>
                 </div>
                 <Button variant="danger" size="sm" onClick={() => setResetOpen(true)}>
                   <Trash2 size={13} />
@@ -459,92 +497,132 @@ export default function SettingsPage() {
                   <PlugZap size={19} />
                 </span>
                 <div>
-                  <h2>A real engine. A new dimension.</h2>
-                  <p>The next phase of your voice studio.</p>
+                  <h2>Your own CPU engine.</h2>
+                  <p>Optional, free to run, and never required.</p>
                 </div>
-                <Badge className="badge-violet">PHASE 2–4</Badge>
+                <Badge className={engineState === 'online' ? 'badge-green' : 'badge-violet'}>
+                  {engineState === 'online' ? 'ONLINE' : 'LOCAL MODE'}
+                </Badge>
               </div>
               <div className="integration-model-card">
                 <div className="model-chip">
-                  <Cpu size={33} />
+                  {engineState === 'online' ? <Server size={31} /> : <Cpu size={31} />}
                 </div>
                 <div>
-                  <span>PROPOSED PRETRAINED MODEL</span>
-                  <h3>Seed-VC</h3>
+                  <span>ENGINE STATUS</span>
+                  <h3>{engineState === 'online' ? engineHealth?.engine || 'VOXSHIFT Engine' : 'Browser DSP only'}</h3>
                   <p>
-                    Reference-conditioned voice conversion.
-                    <br />
-                    License, language support, quality, and GPU needs must be verified.
+                    {engineState === 'online'
+                      ? `v${engineHealth?.version} · ${engineHealth?.cpu_count} CPU cores · ${
+                          (engineHealth?.queue.queued ?? 0) + (engineHealth?.queue.running ?? 0)
+                        } active job(s) · ${engineHealth?.formats.ffmpeg_available ? 'ffmpeg available' : 'WAV only'}`
+                      : 'Start the FastAPI engine for 12–16× real-time renders. The studio already works without it.'}
                   </p>
                 </div>
-                <Badge className="badge-muted">NOT CONNECTED</Badge>
+                <Badge className={engineState === 'online' ? 'badge-green' : 'badge-muted'}>
+                  {engineState === 'online' ? 'CPU' : 'OFFLINE'}
+                </Badge>
               </div>
               <div className="integration-notice">
                 <ShieldCheck size={16} />
                 <p>
-                  No pretrained model is running in this frontend. There is no fake successful AI
-                  conversion or inferred result.
+                  No GPU and no pretrained model: voices are designed with deterministic signal
+                  processing. Uploads are temporary and expire after{' '}
+                  {engineHealth?.limits.ttl_minutes ?? 360} minutes.
                 </p>
               </div>
+              <div className="settings-toggle-row">
+                <div>
+                  <h3>Prefer the engine when it is reachable</h3>
+                  <p>Turn this off to always render inside the browser, even with an engine online.</p>
+                </div>
+                <Switch
+                  checked={draft.preferServer}
+                  onCheckedChange={(checked) => change('preferServer', checked)}
+                  aria-label="Prefer the CPU engine"
+                />
+              </div>
+              <div className="subtle-divider" />
               <label htmlFor="backend-url" className="field-label">
-                FastAPI backend URL
+                Engine URL
               </label>
               <div className="backend-url-row">
                 <input
                   id="backend-url"
                   className="input-field"
-                  type="url"
-                  placeholder="https://your-api.example.com"
-                  value={backendUrl}
-                  onChange={(e) => {
-                    setBackendUrl(e.target.value);
-                    setApiReachable(false);
-                  }}
+                  placeholder="leave empty to use /engine (recommended)"
+                  value={draft.engineUrl}
+                  onChange={(e) => change('engineUrl', e.target.value)}
                 />
                 <Button
                   variant="outline"
-                  onClick={() => void testConnection()}
-                  disabled={!backendUrl || testing}
+                  onClick={() => {
+                    savePreferences(draft, { silent: true });
+                    void refreshEngine();
+                    toast.success('Engine settings applied');
+                  }}
+                  disabled={testing}
                 >
                   {testing ? <Loader2 size={13} className="animate-spin" /> : <PlugZap size={13} />}
-                  Test API
+                  Save &amp; test
                 </Button>
               </div>
+              <label htmlFor="backend-key" className="field-label">
+                API key (only if VOXSHIFT_API_KEY is set on the engine)
+              </label>
+              <input
+                id="backend-key"
+                className="input-field"
+                type="password"
+                placeholder="optional shared secret"
+                value={draft.engineApiKey}
+                onChange={(e) => change('engineApiKey', e.target.value)}
+              />
               <p className="settings-field-note">
-                Checks GET /api/voices/presets only. A reachable API does not prove GPU inference is
-                available.
+                Empty uses the built-in proxy at <code>/engine</code>, which keeps the browser on its
+                own origin. Set <code>ENGINE_URL</code> before starting Next.js to point the proxy
+                somewhere else.
               </p>
-              {apiReachable && (
+              {engineState === 'online' && engineHealth && (
                 <div className="api-reachable">
                   <span className="status-dot" />
-                  Preset API responded. A real conversion test is still required.
+                  Engine reachable · {engineHealth.counters.renders_done} render(s) completed ·{' '}
+                  {engineHealth.storage.disk_free_mb} MB free
+                </div>
+              )}
+              {engineState !== 'online' && (
+                <div className="settings-info-strip">
+                  <CircleHelp size={13} />
+                  Start it with <code>python -m uvicorn app.main:app --port 8000</code> inside{' '}
+                  <code>backend/</code>, or run <code>./dev.sh</code> from the project root.
                 </div>
               )}
               <div className="api-contract">
                 <div>
-                  <span>PLANNED API CONTRACT</span>
+                  <span>ENGINE API</span>
                   <Badge>FASTAPI</Badge>
                 </div>
                 {[
-                  { method: 'POST', route: '/api/audio/upload' },
-                  { method: 'POST', route: '/api/voices/reference' },
-                  { method: 'GET', route: '/api/voices/presets' },
-                  { method: 'POST', route: '/api/conversions' },
-                  { method: 'GET', route: '/api/conversions/{job_id}' },
-                  { method: 'GET', route: '/api/conversions/{job_id}/result' },
-                  { method: 'DELETE', route: '/api/audio/{audio_id}' },
+                  { method: 'GET', route: '/api/health' },
+                  { method: 'GET', route: '/api/presets' },
+                  { method: 'POST', route: '/api/analyze' },
+                  { method: 'POST', route: '/api/render' },
+                  { method: 'GET', route: '/api/render/{job_id}' },
+                  { method: 'GET', route: '/api/render/{job_id}/audio' },
+                  { method: 'POST', route: '/api/polish' },
+                  { method: 'GET', route: '/api/voices' },
+                  { method: 'POST', route: '/api/projects' },
+                  { method: 'GET', route: '/api/stats' },
                 ].map((endpoint) => (
                   <div key={endpoint.route}>
-                    <code className={`method-${endpoint.method.toLowerCase()}`}>
-                      {endpoint.method}
-                    </code>
+                    <code className={`method-${endpoint.method.toLowerCase()}`}>{endpoint.method}</code>
                     <span>{endpoint.route}</span>
                   </div>
                 ))}
               </div>
               <div className="settings-info-strip">
-                <Cpu size={13} />
-                Modular inference. Temporary files. In-memory jobs. No database.
+                <Server size={13} />
+                SQLite metadata · temporary audio files · automatic expiry · optional API key.
               </div>
             </Panel>
           )}

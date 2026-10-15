@@ -1,0 +1,28 @@
+# dependencies / builds
+node_modules/
+.next/
+out/
+dist/
+build/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# engine runtime data (uploads, renders, sqlite)
+backend/data/uploads/
+backend/data/renders/
+backend/data/*.sqlite3*
+
+# test artefacts
+frontend/tests/screenshots/
+frontend/tests/test-results.json
+frontend/tests/verification.wav
+coverage/
+*.log
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,46 @@
+# Render blueprint — engine only.  OPTIONAL: delete this file and create the
+# Web Service by hand in the Render dashboard instead (Root Directory "backend",
+# Build "pip install -r requirements.txt",
+# Start "python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT",
+# Health Check Path "/api/health"). See docs/DEPLOYMENT.md, section 3b.
+#
+# The Studio belongs on Vercel/Netlify (it is a Next.js app and works there
+# with or without the engine). The engine is a long-lived process with a job
+# queue, worker threads and a local SQLite file, so it wants a normal web
+# service, which is exactly what this file creates.
+#
+#   1. Push this repo to GitHub.
+#   2. Render → New → Blueprint → pick the repo (it reads this file).
+#   3. After the first deploy, copy the service URL (https://voxshift-engine.onrender.com)
+#      into the Studio's Settings → CPU engine → Engine URL, then "Save & test".
+#
+# Free plan notes: the instance sleeps after 15 minutes idle (first request
+# afterwards takes ~30 s to wake), has 512 MB RAM and an ephemeral disk — which
+# is fine, because the engine only ever stores temporary uploads and renders,
+# and deletes them when jobs expire.
+services:
+  - type: web
+    name: voxshift-engine
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # Keep the free tier's 512 MB comfortable: cap clip length and workers.
+      - key: VOXSHIFT_MAX_DURATION_S
+        value: "180"
+      - key: VOXSHIFT_WORKERS
+        value: "1"
+      - key: VOXSHIFT_TTL_MINUTES
+        value: "120"
+      # Optional: require X-API-Key (paste the same value into the Studio).
+      # - key: VOXSHIFT_API_KEY
+      #   generateValue: true
+      # Optional: lock CORS down to your studio's domain.
+      # - key: VOXSHIFT_CORS_ORIGINS
+      #   value: "https://your-studio.vercel.app"

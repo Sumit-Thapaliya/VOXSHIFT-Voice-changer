@@ -19,19 +19,22 @@ import { Button, Panel, Badge, SearchInput, Slider, EmptyState, Tip } from '@/co
 import { PageHeading } from '@/components/page-heading';
 import { VoiceGlyph } from '@/components/voice-glyph';
 import { MiniWave } from '@/components/visuals';
-import { effects, getEffect } from '@/lib/data';
+import { effects, findVoice, type LibraryVoice } from '@/lib/data';
 import { cn, formatTime } from '@/lib/utils';
-const categories = ['All voices', 'Human', 'Fun', 'Robotic', 'Cinematic', 'Professional'];
+const categories = ['All voices', 'Human', 'Fun', 'Robotic', 'Cinematic', 'Professional', 'Forged', 'Mine'];
 export default function VoiceEffectsPage() {
   const {
     selectedEffect,
     setSelectedEffect,
     player,
-    previewEffect,
+    previewVoice,
     favorites,
     toggleFavorite,
     intensity,
     setIntensity,
+    voices,
+    customVoices,
+    engineState,
   } = useStudio();
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -39,28 +42,36 @@ export default function VoiceEffectsPage() {
   const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [sort, setSort] = useState('Popular');
   const [inspected, setInspected] = useState(selectedEffect);
-  const effect = getEffect(inspected);
+  const effect = findVoice(voices, inspected);
   const active = player.playing && player.id === `preview-${effect.id}`;
-  const filtered = useMemo(
-    () =>
-      effects
-        .filter(
-          (e) =>
-            (category === 'All voices' || e.category === category) &&
-            e.name.toLowerCase().includes(query.toLowerCase()) &&
-            (!onlyFavorites || favorites.includes(e.id)),
-        )
-        .sort((a, b) =>
-          sort === 'A–Z'
-            ? a.name.localeCompare(b.name)
-            : sort === 'Newest'
-              ? Number(b.badge === 'NEW') - Number(a.badge === 'NEW')
-              : Number(!!b.badge) - Number(!!a.badge),
-        ),
-    [category, query, onlyFavorites, favorites, sort],
-  );
+  const filtered = useMemo(() => {
+    // "Forged" and "Mine" are source filters, not categories: they must not be
+    // filtered again by the voice's own category label.
+    const special = category === 'Forged' || category === 'Mine';
+    const pool: LibraryVoice[] =
+      category === 'Forged'
+        ? voices.filter((voice) => voice.source === 'archetype')
+        : category === 'Mine'
+          ? voices.filter((voice) => voice.source === 'custom')
+          : voices.filter((voice) => voice.source === 'builtin');
+    return pool
+      .filter(
+        (voice) =>
+          (category === 'All voices' || special || voice.category === category) &&
+          voice.name.toLowerCase().includes(query.toLowerCase()) &&
+          (!onlyFavorites || favorites.includes(voice.id)),
+      )
+      .sort((a, b) =>
+        sort === 'A–Z'
+          ? a.name.localeCompare(b.name)
+          : sort === 'Newest'
+            ? Number(b.badge === 'NEW') - Number(a.badge === 'NEW')
+            : Number(!!b.badge) - Number(!!a.badge),
+      );
+  }, [category, query, onlyFavorites, favorites, sort, voices]);
   const useVoice = (id: string) => {
     setSelectedEffect(id);
+    setIntensity(intensity);
     router.push('/studio');
   };
   return (
@@ -72,7 +83,9 @@ export default function VoiceEffectsPage() {
       >
         <div className="library-spectrum">
           <MiniWave bars={24} color="#8ea5ef" seed={2} />
-          <span>{effects.length} VOICES. INFINITE POSSIBILITIES.</span>
+          <span>
+            {voices.length} VOICES · {effects.length} BUILT-IN · {voices.length - effects.length} MADE
+          </span>
         </div>
       </PageHeading>
       <div className="tabs-line category-tabs">
@@ -116,7 +129,11 @@ export default function VoiceEffectsPage() {
       </div>
       <div className="result-count">
         <strong>{filtered.length}</strong> voices to make your own
-        <span>CREATIVE AUDIO EFFECTS · LOCAL PROCESSING</span>
+        <span>
+          {engineState === 'online'
+            ? 'DETERMINISTIC DSP · CPU ENGINE + BROWSER'
+            : 'DETERMINISTIC DSP · BROWSER RENDERING'}
+        </span>
       </div>
       <div className="effects-layout">
         <div className="voice-library-grid">
@@ -179,7 +196,7 @@ export default function VoiceEffectsPage() {
                 <div className="voice-card-footer">
                   <button
                     className={cn('voice-preview', playing && 'playing')}
-                    onClick={() => previewEffect(voice.id)}
+                    onClick={() => void previewVoice(voice.id)}
                   >
                     {playing ? (
                       <Pause size={11} fill="currentColor" />
@@ -254,7 +271,7 @@ export default function VoiceEffectsPage() {
               active={active}
               progress={active ? player.time / player.duration : 0}
             />
-            <button onClick={() => previewEffect(effect.id)}>
+            <button onClick={() => void previewVoice(effect.id)}>
               {active ? (
                 <Pause size={11} fill="currentColor" />
               ) : (

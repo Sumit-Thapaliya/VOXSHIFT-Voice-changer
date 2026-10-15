@@ -41,7 +41,7 @@ export function MiniWave({
   );
 }
 export function VoiceOrb({ compact = false }: { compact?: boolean }) {
-  const { selectedEffect, player, previewEffect, preferences, getAnalyser } = useStudio();
+  const { selectedEffect, player, previewVoice, preferences, getAnalyser, engineState } = useStudio();
   const effect = getEffect(selectedEffect);
   const ref = useRef<HTMLDivElement>(null);
   const id = useId().replaceAll(':', '');
@@ -205,7 +205,7 @@ export function VoiceOrb({ compact = false }: { compact?: boolean }) {
       </svg>
       <button
         className="orb-core"
-        onClick={() => previewEffect(selectedEffect)}
+        onClick={() => void previewVoice(selectedEffect)}
         aria-label={`${active ? 'Pause' : 'Preview'} ${effect.name}`}
       >
         <span className="orb-gloss" />
@@ -221,7 +221,13 @@ export function VoiceOrb({ compact = false }: { compact?: boolean }) {
       {!compact && (
         <div className="orb-caption">
           <span className={cn('status-dot', active && 'pulsing')} />
-          <span>{active ? 'PREVIEWING YOUR NEW VOICE' : 'VOICE ENGINE READY'}</span>
+          <span>
+            {active
+              ? 'PREVIEWING YOUR NEW VOICE'
+              : engineState === 'online'
+                ? 'CPU ENGINE ONLINE'
+                : 'LOCAL ENGINE READY'}
+          </span>
           <p>
             {effect.name}
             <span> · </span>

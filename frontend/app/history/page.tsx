@@ -39,7 +39,8 @@ const filters = [
   { id: 'conversion', label: 'Conversions' },
   { id: 'upload', label: 'Uploads' },
   { id: 'export', label: 'Exports' },
-  { id: 'voice', label: 'References' },
+  { id: 'voice', label: 'Voice designs' },
+  { id: 'polish', label: 'Polish passes' },
 ];
 const activityIcons = {
   conversion: AudioLines,
@@ -47,6 +48,8 @@ const activityIcons = {
   export: Download,
   voice: Mic,
   settings: Settings,
+  polish: Sparkles,
+  analysis: Activity,
 };
 export default function HistoryPage() {
   const { history, clearHistory, creations, output, playTrack, setSelectedEffect, hydrated } =

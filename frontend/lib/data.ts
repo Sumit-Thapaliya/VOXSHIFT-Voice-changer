@@ -1,16 +1,62 @@
-export type EffectCategory = 'Human' | 'Fun' | 'Robotic' | 'Cinematic' | 'Professional';
-export type VoiceEffect = {
+import presets from './voice-presets.json';
+import { mergeChain, type VoiceChain } from './dsp';
+
+export type EffectCategory = 'Human' | 'Fun' | 'Robotic' | 'Cinematic' | 'Professional' | 'Forged' | 'Custom';
+
+export type EffectMeta = {
   id: string;
   name: string;
   shortName: string;
   description: string;
   category: EffectCategory;
   color: string;
-  rate: number;
-  filter?: 'robot' | 'metal' | 'radio' | 'echo' | 'monster' | 'alien';
   badge?: string;
 };
-export const effects: VoiceEffect[] = [
+
+export type ArchetypeMeta = {
+  id: string;
+  label: string;
+  description: string;
+  color: string;
+  tags: string[];
+  chain: VoiceChain;
+};
+
+export type CustomVoice = {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  tags: string[];
+  chain: VoiceChain;
+  archetypeId?: string;
+  createdAt: string;
+  serverId?: string;
+  renderCount?: number;
+};
+
+/** Anything the Studio can transform a voice with. */
+export type LibraryVoice = {
+  id: string;
+  key: string;
+  name: string;
+  shortName: string;
+  description: string;
+  category: EffectCategory;
+  color: string;
+  badge?: string;
+  chain: VoiceChain;
+  source: 'builtin' | 'archetype' | 'custom';
+  serverId?: string;
+  tags?: string[];
+  createdAt?: string;
+};
+
+const chainById = new Map<string, VoiceChain>(
+  (presets.effects as { id: string; chain: Partial<VoiceChain> }[]).map((entry) => [entry.id, mergeChain(entry.chain)]),
+);
+
+export const effects: EffectMeta[] = [
   {
     id: 'baby',
     name: 'Baby Voice',
@@ -18,7 +64,6 @@ export const effects: VoiceEffect[] = [
     description: 'Small voice. Big personality. A light, playful pitch with a little extra charm.',
     category: 'Fun',
     color: '#ef9ccf',
-    rate: 1.55,
   },
   {
     id: 'female',
@@ -27,28 +72,23 @@ export const effects: VoiceEffect[] = [
     description: 'A brighter, lighter vocal register with a soft, expressive character.',
     category: 'Human',
     color: '#e98ee4',
-    rate: 1.2,
     badge: 'POPULAR',
   },
   {
     id: 'male',
     name: 'Male Voice',
     shortName: 'Male',
-    description: 'A grounded, resonant pitch. Confident, balanced, and effortlessly clear.',
+    description: 'A grounded, resonant register. Confident, balanced, and effortlessly clear.',
     category: 'Human',
     color: '#7baeff',
-    rate: 0.86,
   },
   {
     id: 'robot',
     name: 'Robot Voice',
     shortName: 'Robot',
-    description:
-      'A little human. A little machine. Metallic modulation for your next transmission.',
+    description: 'A little human. A little machine. Metallic modulation for your next transmission.',
     category: 'Robotic',
     color: '#71d8eb',
-    rate: 0.95,
-    filter: 'robot',
     badge: 'TRENDING',
   },
   {
@@ -58,8 +98,6 @@ export const effects: VoiceEffect[] = [
     description: 'Chrome-plated resonance with an electric edge. Built for a futuristic sound.',
     category: 'Robotic',
     color: '#a9b5ce',
-    rate: 0.93,
-    filter: 'metal',
   },
   {
     id: 'deep',
@@ -68,7 +106,6 @@ export const effects: VoiceEffect[] = [
     description: 'Rich, cinematic lows. Turn an ordinary sentence into an extraordinary entrance.',
     category: 'Cinematic',
     color: '#7b96f4',
-    rate: 0.74,
     badge: 'POPULAR',
   },
   {
@@ -78,8 +115,6 @@ export const effects: VoiceEffect[] = [
     description: 'A deep, growling presence with just the right amount of beautiful distortion.',
     category: 'Cinematic',
     color: '#8bde9c',
-    rate: 0.62,
-    filter: 'monster',
   },
   {
     id: 'alien',
@@ -88,8 +123,6 @@ export const effects: VoiceEffect[] = [
     description: 'Not from around here. An otherworldly shimmer with dual-phase modulation.',
     category: 'Fun',
     color: '#7fea9f',
-    rate: 1.1,
-    filter: 'alien',
     badge: 'NEW',
   },
   {
@@ -99,17 +132,14 @@ export const effects: VoiceEffect[] = [
     description: 'Turn the energy all the way up. A fast, bright, delightfully tiny voice.',
     category: 'Fun',
     color: '#edb88e',
-    rate: 1.8,
   },
   {
     id: 'radio',
     name: 'Radio Voice',
     shortName: 'Radio',
-    description: 'On air, anywhere. A warm, vintage broadcast sound with a nostalgic texture.',
+    description: 'On air, anywhere. A warm, band-limited broadcast sound with a nostalgic texture.',
     category: 'Professional',
     color: '#f48ca2',
-    rate: 0.96,
-    filter: 'radio',
   },
   {
     id: 'echo',
@@ -118,8 +148,6 @@ export const effects: VoiceEffect[] = [
     description: 'Give your words room to wander. Spacious, atmospheric repeats and rich depth.',
     category: 'Cinematic',
     color: '#a891f6',
-    rate: 1,
-    filter: 'echo',
   },
   {
     id: 'demon',
@@ -128,8 +156,6 @@ export const effects: VoiceEffect[] = [
     description: 'A darker dimension. Subterranean pitch, spectral texture, and a sinister edge.',
     category: 'Cinematic',
     color: '#ee7b7b',
-    rate: 0.58,
-    filter: 'monster',
   },
   {
     id: 'narrator',
@@ -138,7 +164,6 @@ export const effects: VoiceEffect[] = [
     description: 'Every story deserves a great voice. A warm, steady, storytelling register.',
     category: 'Professional',
     color: '#f2ca83',
-    rate: 0.89,
     badge: 'NEW',
   },
   {
@@ -148,8 +173,6 @@ export const effects: VoiceEffect[] = [
     description: 'Straight from the neon underground. A gritty, mechanical transmission.',
     category: 'Robotic',
     color: '#c28aff',
-    rate: 0.87,
-    filter: 'metal',
     badge: 'NEW',
   },
   {
@@ -159,7 +182,6 @@ export const effects: VoiceEffect[] = [
     description: 'A little lift, a lot of laughs. Light-hearted high frequencies that float.',
     category: 'Fun',
     color: '#79dfe1',
-    rate: 1.68,
   },
   {
     id: 'whisper',
@@ -168,11 +190,116 @@ export const effects: VoiceEffect[] = [
     description: 'Dial down the intensity. A gentle, intimate tone for close-up moments.',
     category: 'Human',
     color: '#bbafeb',
-    rate: 0.95,
   },
 ];
-export const getEffect = (id: string) => effects.find((e) => e.id === id) || effects[3];
+
+export const effectChains: Record<string, VoiceChain> = Object.fromEntries(chainById);
+
+export const archetypes: ArchetypeMeta[] = (presets.archetypes as Omit<ArchetypeMeta, 'chain'>[]).map((entry) => ({
+  ...entry,
+  chain: mergeChain((presets.archetypes as unknown as { id: string; chain: Partial<VoiceChain> }[]).find((item) => item.id === entry.id)?.chain),
+}));
+
+export const presetDefaults = presets.defaults as unknown as Record<string, number>;
+export const presetRanges = presets.ranges as unknown as Record<string, [number, number]>;
+export const masterDefaults = presets.master_defaults as unknown as Record<string, number>;
+export const SPEC_VERSION = presets.spec_version as string;
+
+export const FORGE_PREFIX = 'forge:';
+export const CUSTOM_PREFIX = 'custom:';
+
+export function builtinVoices(): LibraryVoice[] {
+  return effects.map((effect) => ({
+    id: effect.id,
+    key: effect.id,
+    name: effect.name,
+    shortName: effect.shortName,
+    description: effect.description,
+    category: effect.category,
+    color: effect.color,
+    badge: effect.badge,
+    chain: effectChains[effect.id] || mergeChain(),
+    source: 'builtin',
+  }));
+}
+
+export function archetypeVoices(): LibraryVoice[] {
+  return archetypes.map((archetype) => ({
+    id: `${FORGE_PREFIX}${archetype.id}`,
+    key: archetype.id,
+    name: archetype.label,
+    shortName: archetype.label.split(' ')[0],
+    description: archetype.description,
+    category: 'Forged',
+    color: archetype.color,
+    chain: archetype.chain,
+    source: 'archetype',
+    tags: archetype.tags,
+  }));
+}
+
+export function customVoicesToLibrary(voices: CustomVoice[]): LibraryVoice[] {
+  return voices.map((voice) => ({
+    id: `${CUSTOM_PREFIX}${voice.id}`,
+    key: voice.id,
+    name: voice.name,
+    shortName: voice.name.split(' ')[0],
+    description: voice.description || 'A voice designed in the Forge from scratch.',
+    category: 'Custom',
+    color: voice.color,
+    chain: voice.chain,
+    source: 'custom',
+    serverId: voice.serverId,
+    tags: voice.tags,
+    createdAt: voice.createdAt,
+  }));
+}
+
+/** Every voice available in the workspace, built-in and made. */
+export function libraryVoices(custom: CustomVoice[] = []): LibraryVoice[] {
+  return [...builtinVoices(), ...archetypeVoices(), ...customVoicesToLibrary(custom)];
+}
+
+export function findVoice(voices: LibraryVoice[], id: string): LibraryVoice {
+  return voices.find((voice) => voice.id === id) || voices[0];
+}
+
+/** Kept for the player and glyphs: resolves any id to display metadata. */
+export function getEffect(id: string) {
+  const builtin = effects.find((effect) => effect.id === id);
+  if (builtin) {
+    return { ...builtin, chain: effectChains[id] || mergeChain(), source: 'builtin' as const, key: id };
+  }
+  const archetypeId = id.startsWith(FORGE_PREFIX) ? id.slice(FORGE_PREFIX.length) : null;
+  const archetype = archetypeId ? archetypes.find((item) => item.id === archetypeId) : null;
+  if (archetype) {
+    return {
+      id,
+      key: archetype.id,
+      name: archetype.label,
+      shortName: archetype.label,
+      description: archetype.description,
+      category: 'Forged' as EffectCategory,
+      color: archetype.color,
+      chain: archetype.chain,
+      source: 'archetype' as const,
+    };
+  }
+  return {
+    id,
+    key: id,
+    name: 'Custom voice',
+    shortName: 'Custom',
+    description: 'A voice designed in the Forge.',
+    category: 'Custom' as EffectCategory,
+    color: '#b597ee',
+    chain: mergeChain(),
+    source: 'custom' as const,
+  };
+}
+
 export type AudioSource = { url: string; name: string; duration: number; blob?: Blob };
+
 export type Creation = {
   id: string;
   name: string;
@@ -183,11 +310,17 @@ export type Creation = {
   favorite: boolean;
   demo?: boolean;
   blob?: Blob;
+  renderId?: string;
+  voiceName?: string;
+  chain?: VoiceChain;
+  engine?: 'server' | 'browser';
+  metrics?: { lufs?: number; peak_dbfs?: number; noise_floor_dbfs?: number };
 };
+
 export type HistoryEntry = {
   id: string;
   action: string;
-  type: 'conversion' | 'upload' | 'export' | 'voice' | 'settings';
+  type: 'conversion' | 'upload' | 'export' | 'voice' | 'settings' | 'polish' | 'analysis';
   detail: string;
   time: string;
   duration?: number;
@@ -195,16 +328,7 @@ export type HistoryEntry = {
   creationId?: string;
   demo?: boolean;
 };
-export type VoiceProfile = {
-  id: string;
-  name: string;
-  url: string;
-  duration: number;
-  color: string;
-  createdAt: string;
-  blob?: Blob;
-  demo?: boolean;
-};
+
 export const initialCreations: Creation[] = [
   {
     id: 'demo-robot',
@@ -237,6 +361,7 @@ export const initialCreations: Creation[] = [
     demo: true,
   },
 ];
+
 export const initialHistory: HistoryEntry[] = [
   {
     id: 'history-demo-1',
@@ -272,6 +397,7 @@ export const initialHistory: HistoryEntry[] = [
     demo: true,
   },
 ];
+
 export type Preferences = {
   displayName: string;
   email: string;
@@ -282,7 +408,15 @@ export type Preferences = {
   theme: 'midnight' | 'deep-space' | 'oled';
   quality: string;
   normalize: boolean;
+  targetLufs: string;
+  denoise: boolean;
+  trimSilence: boolean;
+  remember: boolean;
+  engineUrl: string;
+  engineApiKey: string;
+  preferServer: boolean;
 };
+
 export const defaultPreferences: Preferences = {
   displayName: 'Alex Morgan',
   email: 'alex@voxshift.local',
@@ -293,4 +427,17 @@ export const defaultPreferences: Preferences = {
   theme: 'midnight',
   quality: 'High',
   normalize: true,
+  targetLufs: '-16',
+  denoise: false,
+  trimSilence: false,
+  remember: true,
+  engineUrl: '',
+  engineApiKey: '',
+  preferServer: true,
+};
+
+export const DEMO_SOURCE: AudioSource = {
+  url: '/audio/sample.wav',
+  name: 'Welcome to VoxShift.wav',
+  duration: 12.8,
 };

@@ -1,0 +1,466 @@
+{
+  "spec_version": "1.0",
+  "defaults": {
+    "pitch": 0,
+    "formant": 0,
+    "body": 0,
+    "presence": 0,
+    "air": 0,
+    "warmth": 0,
+    "growl": 0,
+    "ring": 0,
+    "ringFreq": 88,
+    "vibrato": 0,
+    "vibratoRate": 5.2,
+    "breath": 0,
+    "gate": 0,
+    "comp": 0,
+    "deess": 0,
+    "space": 0,
+    "echo": 0,
+    "echoTime": 190
+  },
+  "ranges": {
+    "pitch": [
+      -12,
+      12
+    ],
+    "formant": [
+      -6,
+      6
+    ],
+    "body": [
+      0,
+      100
+    ],
+    "presence": [
+      0,
+      100
+    ],
+    "air": [
+      0,
+      100
+    ],
+    "warmth": [
+      0,
+      100
+    ],
+    "growl": [
+      0,
+      100
+    ],
+    "ring": [
+      0,
+      100
+    ],
+    "ringFreq": [
+      30,
+      400
+    ],
+    "vibrato": [
+      0,
+      100
+    ],
+    "vibratoRate": [
+      3,
+      9
+    ],
+    "breath": [
+      0,
+      100
+    ],
+    "gate": [
+      0,
+      100
+    ],
+    "comp": [
+      0,
+      100
+    ],
+    "deess": [
+      0,
+      100
+    ],
+    "space": [
+      0,
+      100
+    ],
+    "echo": [
+      0,
+      100
+    ],
+    "echoTime": [
+      40,
+      600
+    ]
+  },
+  "master_defaults": {
+    "highpassHz": 60,
+    "denoise": 0,
+    "outputGainDb": 0,
+    "normalize": true,
+    "targetLufs": -16,
+    "limiterCeilingDb": -1,
+    "trimSilence": false,
+    "fadeMs": 8,
+    "lowpassHz": 0
+  },
+  "effects": [
+    {
+      "id": "baby",
+      "label": "Baby Voice",
+      "chain": {
+        "pitch": 7,
+        "formant": 3,
+        "presence": 30,
+        "air": 35,
+        "comp": 25,
+        "deess": 12
+      }
+    },
+    {
+      "id": "female",
+      "label": "Female Voice",
+      "chain": {
+        "pitch": 3.5,
+        "formant": 1.5,
+        "presence": 22,
+        "air": 20,
+        "comp": 22,
+        "deess": 15
+      }
+    },
+    {
+      "id": "male",
+      "label": "Male Voice",
+      "chain": {
+        "pitch": -3.5,
+        "formant": -1.5,
+        "body": 30,
+        "comp": 25
+      }
+    },
+    {
+      "id": "robot",
+      "label": "Robot Voice",
+      "chain": {
+        "ring": 55,
+        "ringFreq": 88,
+        "presence": 30,
+        "comp": 20,
+        "echo": 12,
+        "echoTime": 90
+      }
+    },
+    {
+      "id": "metallic",
+      "label": "Metallic",
+      "chain": {
+        "ring": 45,
+        "ringFreq": 67,
+        "air": 40,
+        "presence": 40,
+        "comp": 18
+      }
+    },
+    {
+      "id": "deep",
+      "label": "Deep Voice",
+      "chain": {
+        "pitch": -5.5,
+        "formant": -2,
+        "body": 45,
+        "air": 12,
+        "comp": 30
+      }
+    },
+    {
+      "id": "monster",
+      "label": "Monster",
+      "chain": {
+        "pitch": -8,
+        "formant": -3.5,
+        "growl": 60,
+        "warmth": 45,
+        "body": 40,
+        "gate": 20,
+        "comp": 25
+      }
+    },
+    {
+      "id": "alien",
+      "label": "Alien",
+      "chain": {
+        "pitch": 2,
+        "formant": 4.5,
+        "ring": 35,
+        "ringFreq": 43,
+        "vibrato": 40,
+        "vibratoRate": 6.4,
+        "space": 25,
+        "comp": 20
+      }
+    },
+    {
+      "id": "chipmunk",
+      "label": "Chipmunk",
+      "chain": {
+        "pitch": 11,
+        "formant": 5,
+        "presence": 25,
+        "air": 25,
+        "comp": 20
+      }
+    },
+    {
+      "id": "radio",
+      "label": "Radio Voice",
+      "chain": {
+        "presence": 55,
+        "body": 0,
+        "air": 0,
+        "comp": 55,
+        "gate": 15,
+        "warmth": 20,
+        "deess": 10,
+        "master": {
+          "highpassHz": 300,
+          "lowpassHz": 3400
+        }
+      }
+    },
+    {
+      "id": "echo",
+      "label": "Echo Voice",
+      "chain": {
+        "echo": 45,
+        "echoTime": 190,
+        "space": 30,
+        "comp": 12
+      }
+    },
+    {
+      "id": "demon",
+      "label": "Demon Voice",
+      "chain": {
+        "pitch": -9,
+        "formant": -4,
+        "growl": 70,
+        "warmth": 55,
+        "ring": 15,
+        "ringFreq": 55,
+        "body": 35,
+        "space": 18
+      }
+    },
+    {
+      "id": "narrator",
+      "label": "The Narrator",
+      "chain": {
+        "pitch": -2,
+        "body": 30,
+        "presence": 18,
+        "comp": 35,
+        "deess": 25,
+        "space": 8
+      }
+    },
+    {
+      "id": "cyber",
+      "label": "Cyberpunk",
+      "chain": {
+        "ring": 40,
+        "ringFreq": 112,
+        "warmth": 40,
+        "presence": 35,
+        "gate": 25,
+        "space": 15,
+        "comp": 20
+      }
+    },
+    {
+      "id": "helium",
+      "label": "Helium",
+      "chain": {
+        "pitch": 9,
+        "formant": 6,
+        "air": 30,
+        "presence": 18,
+        "comp": 18
+      }
+    },
+    {
+      "id": "whisper",
+      "label": "Soft Spoken",
+      "chain": {
+        "breath": 65,
+        "gate": 20,
+        "air": 25,
+        "presence": 10,
+        "deess": 10,
+        "comp": 30
+      }
+    }
+  ],
+  "archetypes": [
+    {
+      "id": "velvet-baritone",
+      "label": "Velvet Baritone",
+      "description": "Low, warm, close-mic authority. Great for audiobooks and calm narration.",
+      "color": "#7b96f4",
+      "tags": [
+        "Narration",
+        "Warm",
+        "Low"
+      ],
+      "chain": {
+        "pitch": -4.5,
+        "formant": -1.5,
+        "body": 40,
+        "warmth": 18,
+        "comp": 30,
+        "deess": 18
+      }
+    },
+    {
+      "id": "neon-host",
+      "label": "Neon Host",
+      "description": "Bright, energized streamer presence with a glassy synthetic sheen.",
+      "color": "#c28aff",
+      "tags": [
+        "Broadcast",
+        "Bright",
+        "Synth"
+      ],
+      "chain": {
+        "pitch": 3,
+        "formant": 1,
+        "presence": 35,
+        "air": 30,
+        "comp": 25,
+        "space": 12,
+        "ring": 8,
+        "ringFreq": 150
+      }
+    },
+    {
+      "id": "studio-anchor",
+      "label": "Studio Anchor",
+      "description": "Level, clean and consistent. Sits on top of any mix without effort.",
+      "color": "#f2ca83",
+      "tags": [
+        "Clean",
+        "Podcast",
+        "Even"
+      ],
+      "chain": {
+        "comp": 45,
+        "presence": 30,
+        "body": 15,
+        "deess": 30,
+        "gate": 15
+      }
+    },
+    {
+      "id": "ethereal-guide",
+      "label": "Ethereal Guide",
+      "description": "Airy and floating with a soft halo. Fantasy narration and game guides.",
+      "color": "#79dfe1",
+      "tags": [
+        "Airy",
+        "Dreamy",
+        "Space"
+      ],
+      "chain": {
+        "pitch": 1.5,
+        "formant": 3,
+        "air": 45,
+        "breath": 25,
+        "space": 45,
+        "vibrato": 20,
+        "vibratoRate": 4.6,
+        "comp": 22
+      }
+    },
+    {
+      "id": "gritty-operator",
+      "label": "Gritty Operator",
+      "description": "Radio-static operator with drive, grit and a tight transmission band.",
+      "color": "#f48ca2",
+      "tags": [
+        "Radio",
+        "Gritty",
+        "Tense"
+      ],
+      "chain": {
+        "pitch": -2.5,
+        "warmth": 45,
+        "growl": 25,
+        "ring": 22,
+        "ringFreq": 120,
+        "gate": 30,
+        "presence": 20,
+        "comp": 35
+      }
+    },
+    {
+      "id": "playful-spark",
+      "label": "Playful Spark",
+      "description": "Light, animated and friendly. Cartoons, shorts and playful ads.",
+      "color": "#ef9ccf",
+      "tags": [
+        "Fun",
+        "Light",
+        "Animated"
+      ],
+      "chain": {
+        "pitch": 6,
+        "formant": 3.5,
+        "presence": 30,
+        "air": 35,
+        "comp": 20,
+        "deess": 12
+      }
+    },
+    {
+      "id": "deep-oracle",
+      "label": "Deep Oracle",
+      "description": "Subterranean and vast. A voice that sounds like it knows something you don't.",
+      "color": "#8bde9c",
+      "tags": [
+        "Cinematic",
+        "Deep",
+        "Ominous"
+      ],
+      "chain": {
+        "pitch": -7,
+        "formant": -3,
+        "body": 50,
+        "growl": 20,
+        "space": 30,
+        "comp": 30
+      }
+    },
+    {
+      "id": "latenight-dj",
+      "label": "Late Night DJ",
+      "description": "Smooth midnight-radio delivery with a touch of room and repeat.",
+      "color": "#a891f6",
+      "tags": [
+        "Radio",
+        "Smooth",
+        "Late"
+      ],
+      "chain": {
+        "pitch": -1.5,
+        "body": 25,
+        "presence": 22,
+        "air": 18,
+        "comp": 40,
+        "echo": 18,
+        "echoTime": 240,
+        "space": 15
+      }
+    }
+  ]
+}

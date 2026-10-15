@@ -20,6 +20,12 @@ import {
   FileAudio,
   RotateCcw,
   Loader2,
+  SlidersHorizontal,
+  Wand2,
+  Server,
+  Cpu,
+  Gauge,
+  Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStudio } from '@/components/providers';
@@ -30,25 +36,37 @@ import { ContourPanel } from '@/components/contour-panel';
 import { UploadZone, RecordModal } from '@/components/upload-zone';
 import { AudioWaveform } from '@/components/audio-player';
 import { ConversionButton } from '@/components/conversion-button';
-import { effects, getEffect } from '@/lib/data';
+import { archetypes, effects, findVoice } from '@/lib/data';
+import { describeChain } from '@/lib/dsp';
 import { cn, formatTime, downloadFile } from '@/lib/utils';
 import { trimAudio } from '@/lib/audio';
 export default function StudioPage() {
   const {
     selectedEffect,
     setSelectedEffect,
+    voices,
+    activeVoice,
+    chain,
+    setChain,
+    resetChain,
     source,
     setSource,
-    reference,
-    setReference,
     output,
-    setOutput,
     player,
     playTrack,
     seek,
     volume,
     setVolume,
     addHistory,
+    engineState,
+    engineHealth,
+    refreshEngine,
+    preferences,
+    savePreferences,
+    saveCustomVoice,
+    saveProject,
+    polishAudio,
+    renderVoice,
   } = useStudio();
   const [recordOpen, setRecordOpen] = useState(false);
   const [trimOpen, setTrimOpen] = useState(false);
@@ -56,6 +74,11 @@ export default function StudioPage() {
   const [trimming, setTrimming] = useState(false);
   const [waveTab, setWaveTab] = useState<'original' | 'converted'>('original');
   const [progress, setProgress] = useState(0);
+  const [polishing, setPolishing] = useState(false);
+  const [saveVoiceOpen, setSaveVoiceOpen] = useState(false);
+  const [voiceName, setVoiceName] = useState('');
+  const [projectOpen, setProjectOpen] = useState(false);
+  const [projectName, setProjectName] = useState('');
   useEffect(() => setTrimRange([0, source.duration]), [source.duration, source.url]);
   useEffect(() => {
     if (!output) {
@@ -63,7 +86,8 @@ export default function StudioPage() {
       setProgress(0);
     }
   }, [output]);
-  const effect = getEffect(selectedEffect);
+  const effect = findVoice(voices, selectedEffect);
+  const modules = describeChain(chain);
   const sourceActive = player.id === 'source' && player.playing;
   const outputActive = !!output && player.id === output.id && player.playing;
   const toggleSource = () =>
@@ -93,6 +117,71 @@ export default function StudioPage() {
     } finally {
       setTrimming(false);
     }
+  };
+  const compareAB = async () => {
+    if (!output) return;
+    playTrack({ id: 'source', title: source.name.replace(/\.[^.]+$/, ''), url: source.url });
+    toast.info('Playing the original — the new voice follows', { duration: 2500 });
+    window.setTimeout(() => {
+      playTrack({ id: output.id, title: output.name, url: output.url, effectId: output.effectId });
+      setWaveTab('converted');
+    }, Math.min(6000, (source.duration + 0.4) * 1000));
+  };
+  const runPolish = async () => {
+    if (polishing) return;
+    setPolishing(true);
+    const toastId = toast.loading('Cleaning up the audio…', {
+      description: preferences.preferServer && engineState === 'online' ? 'Using the CPU engine' : 'Using your browser',
+    });
+    try {
+      const outcome = await polishAudio(output ? { url: output.url, name: output.name, duration: output.duration, blob: output.blob } : source, (value, stage) =>
+        setProgress(value),
+      );
+      const polished = {
+        url: outcome.url,
+        name: `${(output?.name || source.name).replace(/\.[^.]+$/, '')} · Polished`,
+        duration: outcome.duration,
+        blob: outcome.blob,
+      };
+      setSource(polished);
+      addHistory({
+        action: 'Audio polished',
+        type: 'polish',
+        detail: `${polished.name} · denoise, gate, loudness`,
+        status: outcome.engine === 'server' ? 'Engine' : 'Browser',
+        duration: outcome.duration,
+      });
+      toast.success('Polish applied', {
+        id: toastId,
+        description: outcome.metrics?.lufs ? `Now ${outcome.metrics.lufs.toFixed(1)} LUFS` : 'Denoised, gated and levelled',
+      });
+    } catch (error) {
+      toast.error('The polish pass failed', { id: toastId, description: error instanceof Error ? error.message : undefined });
+    } finally {
+      setPolishing(false);
+      setProgress(0);
+    }
+  };
+  const confirmSaveVoice = async () => {
+    const name = voiceName.trim();
+    if (!name) return;
+    const saved = await saveCustomVoice(
+      {
+        name,
+        description: modules.length
+          ? `${modules.length} modules: ${modules.map((module) => module.label).join(', ')}.`
+          : 'A neutral voice, ready to shape.',
+        color: effect.color || '#b597ee',
+        tags: modules.slice(0, 3).map((module) => module.label),
+        chain,
+      },
+      { persist: true },
+    );
+    setSaveVoiceOpen(false);
+    setSelectedEffect(`custom:${saved.id}`);
+    toast.success(`${name} saved to your voices`, {
+      description: engineState === 'online' ? 'Available in My Creations and Voice Effects.' : 'Available for this session.',
+    });
   };
   const download = () => {
     if (!output) return;
@@ -179,40 +268,66 @@ export default function StudioPage() {
         <ContourPanel className="custom-mode">
           <div className="mode-heading">
             <h2>
-              MODE 02 <span>—</span> CUSTOM VOICE
+              MODE 02 <span>—</span> VOICE FORGE
             </h2>
-            <Link href="/custom-voice" aria-label="Open custom voice lab">
+            <Link href="/voice-forge" aria-label="Open the voice forge">
               <ArrowUpRight size={16} />
             </Link>
           </div>
-          <p className="mode-description">A reference voice. An entirely new direction.</p>
-          <UploadZone
-            compact
-            reference
-            onAccepted={setReference}
-            source={reference}
-            title="Upload a voice sample"
-          />
-          <div className={cn('reference-visual', reference && 'reference-loaded')}>
-            <MiniWave bars={58} color={reference ? '#a999ef' : '#6a7087'} seed={6} />
+          <p className="mode-description">
+            Sculpt a voice from scratch. Sixteen modules, one signature sound.
+          </p>
+          <div className="forge-quick-grid">
+            {archetypes.slice(0, 4).map((archetype) => (
+              <button
+                key={archetype.id}
+                className={cn('forge-quick', chain.pitch === archetype.chain.pitch && chain.ring === archetype.chain.ring && 'forge-quick-active')}
+                style={{ '--voice-color': archetype.color } as React.CSSProperties}
+                onClick={() => {
+                  setChain(archetype.chain);
+                  setSelectedEffect(`forge:${archetype.id}`);
+                }}
+              >
+                <VoiceGlyph id={`forge:${archetype.id}`} size={22} />
+                <span>{archetype.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="forge-chain-visual">
+            <MiniWave bars={58} color={effect.color} seed={6} active={modules.length > 0} />
             <div>
               <span>
-                {reference
-                  ? `REFERENCE SAMPLE · ${formatTime(reference.duration)}`
-                  : '5–30 SECONDS IS ALL IT TAKES'}
+                {modules.length
+                  ? `${modules.length} ACTIVE MODULE${modules.length > 1 ? 'S' : ''} · ${modules
+                      .slice(0, 2)
+                      .map((module) => module.label)
+                      .join(' + ')}`
+                  : 'NO MODULES ACTIVE YET'}
               </span>
-              <Badge className={reference ? 'badge-green' : 'badge-muted'}>
-                {reference ? 'SAMPLE READY' : 'REFERENCE AUDIO'}
+              <Badge className={modules.length ? 'badge-green' : 'badge-muted'}>
+                {modules.length ? 'DESIGN READY' : 'NEUTRAL VOICE'}
               </Badge>
             </div>
           </div>
-          <Link href="/custom-voice" className="custom-mode-link">
-            Open the voice lab
-            <span>
-              AI CONNECTION REQUIRED
-              <ArrowRight size={13} />
-            </span>
-          </Link>
+          <div className="forge-quick-actions">
+            <button
+              className="text-button"
+              onClick={() => {
+                resetChain();
+                setSelectedEffect('robot');
+              }}
+            >
+              <RotateCcw size={11} />
+              Reset design
+            </button>
+            <Link href="/voice-forge" className="custom-mode-link">
+              Open the voice forge
+              <span>
+                {engineState === 'online' ? 'CPU ENGINE ONLINE' : 'LOCAL DSP · NO SERVER NEEDED'}
+                <ArrowRight size={13} />
+              </span>
+            </Link>
+          </div>
         </ContourPanel>
       </section>
       <section className="studio-bottom">
@@ -494,13 +609,177 @@ export default function StudioPage() {
                 <Download size={17} />
               </Button>
             </Tip>
+            <Tip label="Play the original, then the new voice">
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={!output}
+                onClick={() => void compareAB()}
+                aria-label="Compare original and converted audio"
+              >
+                <Gauge size={17} />
+              </Button>
+            </Tip>
+            <Tip label="Polish this audio: denoise, gate, loudness">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => void runPolish()}
+                disabled={polishing}
+                aria-label="Polish audio"
+              >
+                {polishing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              </Button>
+            </Tip>
+            <Tip label="Save this design as a custom voice">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  setVoiceName(activeVoice.name);
+                  setSaveVoiceOpen(true);
+                }}
+                aria-label="Save this voice design"
+              >
+                <Wand2 size={16} />
+              </Button>
+            </Tip>
+            <Tip label="Save as a project on the engine">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  setProjectName(source.name.replace(/\.[^.]+$/, ''));
+                  setProjectOpen(true);
+                }}
+                aria-label="Save project"
+              >
+                <Save size={16} />
+              </Button>
+            </Tip>
           </div>
+          <div className="engine-strip">
+            <span className={cn('engine-badge', engineState === 'online' ? 'is-online' : 'is-local')}>
+              {engineState === 'online' ? <Server size={11} /> : <Cpu size={11} />}
+              {engineState === 'online'
+                ? `CPU ENGINE · v${engineHealth?.version || '1.0'}`
+                : engineState === 'checking'
+                  ? 'LOOKING FOR AN ENGINE…'
+                  : 'LOCAL BROWSER ENGINE'}
+            </span>
+            {engineHealth ? (
+              <span>
+                {engineHealth.cpu_count} CPU {engineHealth.cpu_count === 1 ? 'core' : 'cores'} ·{' '}
+                {engineHealth.queue.queued + engineHealth.queue.running} job
+                {engineHealth.queue.queued + engineHealth.queue.running === 1 ? '' : 's'} active
+              </span>
+            ) : (
+              <span>Everything runs on this device — a server makes it faster, never required.</span>
+            )}
+            {engineState !== 'online' && (
+              <button className="engine-strip-action" onClick={() => void refreshEngine()}>
+                Retry
+              </button>
+            )}
+          </div>
+          {output?.metrics && (
+            <div className="output-metrics">
+              <span>
+                LOUDNESS<strong>{output.metrics.lufs != null ? `${output.metrics.lufs.toFixed(1)} LUFS` : '—'}</strong>
+              </span>
+              <span>
+                TRUE PEAK<strong>{output.metrics.peak_dbfs != null ? `${output.metrics.peak_dbfs.toFixed(1)} dB` : '—'}</strong>
+              </span>
+              <span>
+                NOISE FLOOR
+                <strong>
+                  {output.metrics.noise_floor_dbfs != null ? `${output.metrics.noise_floor_dbfs.toFixed(0)} dB` : '—'}
+                </strong>
+              </span>
+              <span>
+                RENDERED BY<strong>{output.engine === 'server' ? 'CPU engine' : 'Your browser'}</strong>
+              </span>
+            </div>
+          )}
           <div className="conversion-privacy">
             <ShieldCheck size={11} />
-            Local audio effects. Your files never leave your device.
+            {output?.engine === 'server'
+              ? `Rendered by your own CPU engine · file expires in ${engineHealth?.limits.ttl_minutes ?? 360} minutes`
+              : 'Designed locally with Web Audio DSP. Nothing leaves this device.'}
           </div>
         </ContourPanel>
       </section>
+      <Modal
+        open={saveVoiceOpen}
+        onOpenChange={setSaveVoiceOpen}
+        title="Keep this voice."
+        description="Name your design, then use it anywhere in the studio."
+      >
+        <div className="save-profile-form">
+          <label className="field-label" htmlFor="studio-voice-name">
+            Voice name
+          </label>
+          <input
+            id="studio-voice-name"
+            className="input-field"
+            autoFocus
+            maxLength={48}
+            value={voiceName}
+            placeholder="e.g. Midnight anchor"
+            onChange={(event) => setVoiceName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void confirmSaveVoice();
+            }}
+          />
+          <p className="settings-field-note">
+            Saves the {modules.length} active module{modules.length === 1 ? '' : 's'} of this design
+            {engineState === 'online' ? ' to your engine library and this browser.' : ' to this browser.'}
+          </p>
+          <div className="modal-actions">
+            <Button variant="outline" onClick={() => setSaveVoiceOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void confirmSaveVoice()} disabled={!voiceName.trim()}>
+              <Wand2 size={15} />
+              Save voice
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        open={projectOpen}
+        onOpenChange={setProjectOpen}
+        title="Save the session as a project."
+        description="The engine stores your design, intensity and source details. Audio stays temporary."
+      >
+        <div className="save-profile-form">
+          <label className="field-label" htmlFor="studio-project-name">
+            Project name
+          </label>
+          <input
+            id="studio-project-name"
+            className="input-field"
+            autoFocus
+            maxLength={96}
+            value={projectName}
+            onChange={(event) => setProjectName(event.target.value)}
+          />
+          <div className="modal-actions">
+            <Button variant="outline" onClick={() => setProjectOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                void saveProject(projectName.trim() || 'Untitled project');
+                setProjectOpen(false);
+              }}
+            >
+              <Save size={15} />
+              Save project
+            </Button>
+          </div>
+        </div>
+      </Modal>
       <RecordModal
         open={recordOpen}
         onOpenChange={setRecordOpen}

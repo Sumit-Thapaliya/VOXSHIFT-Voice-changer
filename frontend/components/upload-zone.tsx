@@ -27,22 +27,22 @@ const fileSchema = z.object({
 });
 export function UploadZone({
   onAccepted,
-  reference = false,
   compact = false,
   className,
   title,
   source,
   showDemo = true,
   hideActions = false,
+  description,
 }: {
   onAccepted: (audio: AudioSource) => void;
-  reference?: boolean;
   compact?: boolean;
   className?: string;
   title?: string;
   source?: AudioSource | null;
   showDemo?: boolean;
   hideActions?: boolean;
+  description?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -60,14 +60,10 @@ export function UploadZone({
       const duration = await getAudioDuration(url);
       if (duration < 1)
         throw new Error('The recording is too short. Add at least a second of audio.');
-      if (reference && (duration < 5 || duration > 30))
-        throw new Error(
-          'Use a reference sample between 5 and 30 seconds. 10–30 seconds works best.',
-        );
-      if (!reference && duration > 180)
-        throw new Error('Use a recording shorter than 3 minutes for this browser preview.');
+      if (duration > 300)
+        throw new Error('Use a recording shorter than 5 minutes.');
       onAccepted({ url, name: file.name, duration, blob: file });
-      toast.success(reference ? 'Reference sample is ready' : 'Audio added to your studio');
+      toast.success('Audio added to your studio');
     } catch (error) {
       URL.revokeObjectURL(url);
       toast.error(
@@ -87,7 +83,7 @@ export function UploadZone({
         ref={inputRef}
         accept="audio/*,.m4a,.wav,.mp3,.ogg,.webm,.aac,.flac"
         className="sr-only"
-        aria-label={reference ? 'Upload reference voice' : 'Upload source audio'}
+        aria-label="Upload source audio"
         onChange={(e) => {
           if (e.target.files?.[0]) void accept(e.target.files[0]);
         }}
@@ -118,11 +114,7 @@ export function UploadZone({
           )}
         </span>
         <span className="upload-title">
-          {loading
-            ? 'Reading your audio…'
-            : source
-              ? source.name
-              : title || (reference ? 'Drop a reference sample' : 'Drop your audio here')}
+          {loading ? 'Reading your audio…' : source ? source.name : title || 'Drop your audio here'}
         </span>
         <span className="upload-description">
           {source ? (
@@ -136,13 +128,14 @@ export function UploadZone({
             </>
           )}
         </span>
+        {description && <span className="upload-note">{description}</span>}
         {!compact && !source && <span className="upload-formats">WAV, MP3, M4A · Up to 30 MB</span>}
       </button>
       {!hideActions && (
         <div className="upload-actions">
           <button className="text-button" onClick={() => setRecordOpen(true)}>
             <Mic size={13} />
-            Record {reference ? 'a sample' : 'instead'}
+            Record instead
           </button>
           {showDemo && (
             <button
@@ -165,7 +158,6 @@ export function UploadZone({
       <RecordModal
         open={recordOpen}
         onOpenChange={setRecordOpen}
-        reference={reference}
         onAccepted={(audio) => {
           onAccepted(audio);
           setRecordOpen(false);
@@ -178,12 +170,14 @@ export function RecordModal({
   open,
   onOpenChange,
   onAccepted,
-  reference = false,
+  title = 'Let’s hear your voice',
+  description = 'Your microphone. Your moment. Everything stays on your device.',
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAccepted: (audio: AudioSource) => void;
-  reference?: boolean;
+  title?: string;
+  description?: string;
 }) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -255,7 +249,7 @@ export function RecordModal({
       timerRef.current = setInterval(() => {
         elapsedRef.current += 1;
         setSeconds(elapsedRef.current);
-        if (elapsedRef.current >= (reference ? 30 : 180)) stop();
+        if (elapsedRef.current >= 300) stop();
       }, 1000);
     } catch (error) {
       toast.error(
@@ -271,12 +265,8 @@ export function RecordModal({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={reference ? 'Record your reference voice' : 'Let’s hear your voice'}
-      description={
-        reference
-          ? 'Find a quiet place. Speak naturally for 10–30 seconds.'
-          : 'Your microphone. Your moment. Everything stays on your device.'
-      }
+      title={title}
+      description={description}
       className="record-modal"
     >
       <div className="record-display">
@@ -303,10 +293,6 @@ export function RecordModal({
             </Button>
             <Button
               onClick={() => {
-                if (reference && (recorded.duration < 5 || recorded.duration > 30)) {
-                  toast.error('Record between 5 and 30 seconds for a reference voice.');
-                  return;
-                }
                 onAccepted(recorded);
                 toast.success('Recording added');
               }}

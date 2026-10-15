@@ -6,7 +6,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   LayoutGrid,
   AudioLines,
-  Mic,
+  Wand2,
   FolderOpen,
   History,
   Settings,
@@ -15,7 +15,6 @@ import {
   ChevronsUpDown,
   Bell,
   Search,
-  Command,
   HelpCircle,
   Download,
   Sparkles,
@@ -24,18 +23,18 @@ import {
   Check,
   ShieldCheck,
   Cpu,
-  Radio,
+  Server,
 } from 'lucide-react';
 import { Button, Modal, Dropdown, DropdownItem, SearchInput, Tip, Badge } from './ui';
 import { GlobalAudioPlayer } from './audio-player';
 import { useStudio } from './providers';
-import { effects } from '@/lib/data';
+import { libraryVoices } from '@/lib/data';
 import { downloadFile, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 const navigation = [
   { href: '/studio', label: 'Studio', icon: LayoutGrid, section: 'CREATE' },
   { href: '/voice-effects', label: 'Voice Effects', icon: AudioLines },
-  { href: '/custom-voice', label: 'Custom Voice', icon: Mic },
+  { href: '/voice-forge', label: 'Voice Forge', icon: Wand2 },
   { href: '/creations', label: 'My Creations', icon: FolderOpen, section: 'YOUR WORKSPACE' },
   { href: '/history', label: 'History', icon: History },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -43,8 +42,20 @@ const navigation = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { player, output, creations, preferences, togglePlayback, setSelectedEffect, addHistory } =
-    useStudio();
+  const {
+    player,
+    output,
+    creations,
+    preferences,
+    togglePlayback,
+    setSelectedEffect,
+    addHistory,
+    engineState,
+    engineHealth,
+    refreshEngine,
+    voices,
+    customVoices,
+  } = useStudio();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [transitionReady, setTransitionReady] = useState(false);
@@ -246,7 +257,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 <item.icon size={18} strokeWidth={1.7} />
                 <span>{item.label}</span>
-                {item.href === '/custom-voice' && <span className="nav-beta">BETA</span>}
+                {item.href === '/voice-forge' && <span className="nav-beta">NEW</span>}
                 {current.href === item.href && (
                   <motion.span className="nav-active-indicator" layoutId="active-navigation" />
                 )}
@@ -296,8 +307,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <ChevronsUpDown size={14} />
           </Link>
           <div className="sidebar-version">
-            <span className="status-dot" />
-            SESSION WORKSPACE<span>v1.0</span>
+            <span className={cn('status-dot', engineState !== 'online' && 'status-dot-idle')} />
+            {engineState === 'online' ? 'ENGINE CONNECTED' : 'LOCAL MODE'}
+            <span>v1.1</span>
           </div>
         </div>
       </aside>
@@ -330,10 +342,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span>Quick search</span>
               <kbd>⌘ K</kbd>
             </button>
-            <span className="engine-status">
-              <span className="status-dot" />
-              ENGINE ONLINE
-            </span>
+            <button
+              className={cn('engine-status', engineState === 'online' && 'engine-status-online')}
+              onClick={() => void refreshEngine()}
+              title={
+                engineState === 'online'
+                  ? `${engineHealth?.engine} v${engineHealth?.version} · ${engineHealth?.cpu_count} CPU · ${(engineHealth?.queue.queued ?? 0) + (engineHealth?.queue.running ?? 0)} active job(s)`
+                  : 'No engine reachable. Everything runs in your browser. Click to look again.'
+              }
+            >
+              <span className={cn('status-dot', engineState !== 'online' && 'status-dot-idle')} />
+              {engineState === 'online' ? 'CPU ENGINE ONLINE' : engineState === 'checking' ? 'CHECKING ENGINE' : 'LOCAL MODE'}
+            </button>
             <Tip label="Help & keyboard shortcuts">
               <button
                 className="icon-button topbar-help"
@@ -359,22 +379,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
               <div className="notification-item">
                 <span>
-                  <Sparkles size={16} />
+                  <Wand2 size={16} />
                 </span>
                 <div>
-                  <strong>A new voice is waiting</strong>
-                  <p>Explore 16 creative effects in the library.</p>
-                  <small>WELCOME TO VOXSHIFT</small>
+                  <strong>The Voice Forge is open</strong>
+                  <p>Design a voice from 15 DSP modules and 3 fine controls — no reference sample, no GPU.</p>
+                  <small>NEW IN VOXSHIFT</small>
                 </div>
               </div>
               <div className="notification-item">
                 <span>
-                  <ShieldCheck size={16} />
+                  {engineState === 'online' ? <Server size={16} /> : <Cpu size={16} />}
                 </span>
                 <div>
-                  <strong>Private by design</strong>
-                  <p>Your audio stays on your device in this preview.</p>
-                  <small>FRONTEND PREVIEW</small>
+                  <strong>{engineState === 'online' ? 'CPU engine connected' : 'Running locally'}</strong>
+                  <p>
+                    {engineState === 'online'
+                      ? `${customVoices.length} custom voice(s) and projects can be stored on your own engine.`
+                      : 'Every effect is processed in this browser. Start the engine for faster renders.'}
+                  </p>
+                  <small>{engineState === 'online' ? 'ENGINE' : 'BROWSER DSP'}</small>
                 </div>
               </div>
               <DropdownItem onSelect={() => router.push('/voice-effects')}>
@@ -412,7 +436,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               Your sound. Your space. Always private.
             </span>
             <span>
-              VOXSHIFT STUDIO<span className="footer-dot">·</span>FRONTEND PREVIEW
+              VOXSHIFT STUDIO<span className="footer-dot">·</span>
+              {engineState === 'online' ? 'CPU ENGINE' : 'LOCAL DSP'}
             </span>
           </div>
         </div>
@@ -460,9 +485,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="info-box">
           <Cpu size={18} />
           <p>
-            <strong>This is the frontend phase.</strong> Custom AI voice conversion needs a real
-            inference backend. Pitch effects are creative effects, not realistic speaker cloning.
-            Session audio and history disappear on refresh.
+            <strong>Design, don&apos;t clone.</strong> Voices are sculpted with pitch/formant shifting,
+            tone modules and dynamics — deterministic DSP that needs no GPU and no reference sample.
+            Connect the optional CPU engine for faster renders; the browser works on its own.
           </p>
         </div>
         <Button className="full-width" onClick={() => setHelpOpen(false)}>
@@ -500,27 +525,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <ChevronRight size={15} />
               </button>
             ))}
-          <span className="field-eyebrow">VOICE EFFECTS</span>
-          {effects
-            .filter((e) => query && e.name.toLowerCase().includes(query.toLowerCase()))
-            .slice(0, 6)
-            .map((effect) => (
+          <span className="field-eyebrow">VOICES</span>
+          {libraryVoices(customVoices)
+            .filter((voice) => query && voice.name.toLowerCase().includes(query.toLowerCase()))
+            .slice(0, 7)
+            .map((voice) => (
               <button
-                key={effect.id}
+                key={voice.id}
                 onClick={() => {
-                  setSelectedEffect(effect.id);
+                  setSelectedEffect(voice.id);
                   router.push('/studio');
                   setSearchOpen(false);
                 }}
               >
-                <AudioLines size={17} style={{ color: effect.color }} />
-                <span>{effect.name}</span>
-                <Badge>{effect.category}</Badge>
+                <AudioLines size={17} style={{ color: voice.color }} />
+                <span>{voice.name}</span>
+                <Badge>{voice.category}</Badge>
               </button>
             ))}
           {query &&
             navigation.every((n) => !n.label.toLowerCase().includes(query.toLowerCase())) &&
-            effects.every((e) => !e.name.toLowerCase().includes(query.toLowerCase())) && (
+            libraryVoices(customVoices).every((voice) => !voice.name.toLowerCase().includes(query.toLowerCase())) && (
               <p className="command-empty">No matches. Try “Robot” or “Studio”.</p>
             )}
         </div>
