@@ -1,0 +1,32 @@
+{
+  "checks": [
+    "Studio renders with no horizontal overflow",
+    "Quick preset selection",
+    "Real local audio effect conversion",
+    "Converted audio playback",
+    "Download is a real nonempty WAV",
+    "Voice search and category filters",
+    "Reference file validation and upload",
+    "Permission-gated session reference profile",
+    "Unavailable AI conversion is honestly blocked",
+    "New conversion appears in session creations",
+    "Creation rename",
+    "Creation grid and list views",
+    "History logs real session interactions and filters",
+    "History CSV export",
+    "Session profile preferences apply",
+    "Theme preference applies",
+    "Audio sample-rate preference",
+    "Keyboard quick search",
+    "MediaRecorder captures a real browser audio blob",
+    "Refresh resets state; no persistent records",
+    "Responsive mobile /studio",
+    "Responsive mobile /voice-effects",
+    "Responsive mobile /custom-voice",
+    "Responsive mobile /creations",
+    "Responsive mobile /history",
+    "Responsive mobile /settings",
+    "Mobile navigation drawer"
+  ],
+  "errors": []
+}
